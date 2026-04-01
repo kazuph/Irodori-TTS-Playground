@@ -32,6 +32,38 @@ services:
       retries: 60
       start_period: 300s
 
+  irodori-tts-voicedesign:
+    build:
+      context: ./irodori-tts-voicedesign
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - IRODORI_HF_CHECKPOINT=Aratako/Irodori-TTS-500M-v2-VoiceDesign
+      - IRODORI_DEVICE=cuda
+      - IRODORI_PRECISION=bf16
+      - IRODORI_PORT=8006
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8006/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 300s
+
   web-ui:
     image: nginx:alpine
     restart: unless-stopped
@@ -45,6 +77,7 @@ services:
       - ./web-ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - irodori-tts
+      - irodori-tts-voicedesign
 
 volumes:
   hf_cache:

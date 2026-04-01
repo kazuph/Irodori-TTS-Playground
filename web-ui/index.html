@@ -9,12 +9,19 @@
 body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; max-width: 600px; margin: 0 auto; }
 h1 { font-size: 1.4em; margin-bottom: 16px; text-align: center; }
 label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #aaa; }
-textarea { width: 100%; height: 120px; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #eee; font-size: 1em; resize: vertical; }
+textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #eee; font-size: 1em; resize: vertical; }
+#text { height: 120px; }
+#caption { height: 80px; }
 button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; margin-top: 12px; }
 .btn-gen { background: #e94560; color: #fff; }
 .btn-gen:disabled { background: #555; cursor: not-allowed; }
 .status { margin-top: 8px; font-size: 0.85em; color: #aaa; min-height: 1.2em; }
 audio { width: 100%; margin-top: 12px; }
+.model-switch { display: flex; gap: 0; margin: 12px 0; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
+.model-switch button { flex: 1; padding: 10px; border: none; background: #16213e; color: #aaa; font-size: 0.9em; cursor: pointer; margin: 0; border-radius: 0; }
+.model-switch button.active { background: #e94560; color: #fff; }
+.caption-area { display: none; }
+.caption-area.show { display: block; }
 .samples { margin-top: 20px; }
 .samples h2 { font-size: 1em; margin-bottom: 8px; color: #e94560; }
 .sample-item { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
@@ -22,6 +29,7 @@ audio { width: 100%; margin-top: 12px; }
 .sample-play { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: none; font-size: 1.1em; cursor: pointer; background: #e94560; color: #fff; display: flex; align-items: center; justify-content: center; }
 .sample-play.playing { background: #0f3460; color: #fff; }
 .sample-text { font-size: 0.9em; color: #ccc; flex: 1; cursor: pointer; }
+.sample-caption { font-size: 0.8em; color: #888; margin-top: 4px; font-style: italic; padding-left: 44px; }
 .sample-audio { margin-top: 6px; display: none; }
 .sample-audio audio { width: 100%; }
 .history { margin-top: 24px; }
@@ -33,8 +41,19 @@ input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1
 <body>
 <h1>Irodori-TTS</h1>
 
+<div class="model-switch">
+  <button id="btn-model-normal" class="active" onclick="switchModel('normal')">通常版</button>
+  <button id="btn-model-vd" onclick="switchModel('voicedesign')">VoiceDesign</button>
+</div>
+
 <label>テキスト</label>
 <textarea id="text" placeholder="日本語テキストを入力...">おはようございます。今日もいい天気ですね。散歩に行きませんか？</textarea>
+
+<div id="caption-area" class="caption-area">
+  <label>Voice Design キャプション</label>
+  <textarea id="caption" placeholder="声質の説明を入力...（例: 低い声の女性が、優しく話している）"></textarea>
+</div>
+
 <label>ステップ数</label>
 <input type="number" id="steps" value="40" min="1" max="100">
 <button class="btn-gen" id="btn" onclick="generate()">音声生成</button>
@@ -56,6 +75,9 @@ input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1
 
   <h2 style="margin-top: 16px;">絵文字スタイル制御（HFサンプル）</h2>
   <div id="samples-emoji"></div>
+
+  <h2 style="margin-top: 16px;">VoiceDesign（HFサンプル）</h2>
+  <div id="samples-voicedesign"></div>
 </div>
 
 <div class="history">
@@ -66,6 +88,7 @@ input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1
 <script>
 const BASE = location.origin;
 const hist = [];
+let currentModel = "normal";
 
 const PRESETS = [
   { cat: "chuuni", text: "くっ、封印されしこの右腕が疼く。まさか、奴らがついに動き出したというのか。", file: "00.wav" },
@@ -85,106 +108,139 @@ const PRESETS = [
   { cat: "asmr", text: "おやすみ。いい夢見てね。明日もきっと、いいことあるから。ふふ、おやすみなさい。", file: "14.wav" },
   { cat: "standard", text: "お電話ありがとうございます。ただいま電話が大変混み合っております。恐れ入りますが、発信音のあとに、ご用件をお話しください。", file: "15.wav" },
   { cat: "standard", text: "その森には、古い言い伝えがありました。月が最も高く昇る夜、静かに耳を澄ませば、風の歌声が聞こえるというのです。私は半信半疑でしたが、その夜、確かに誰かが私を呼ぶ声を聞いたのです。", file: "16.wav" },
-  { cat: "emoji", text: "なーに、どうしたの？…え？もっと近づいてほしい？…👂😮\u200d💨👂😮\u200d💨こういうのが好きなんだ？", file: "17.wav" },
-  { cat: "emoji", text: "うぅ…😭そんなに酷いこと、言わないで…😭", file: "18.wav" },
-  { cat: "emoji", text: "🤧🤧ごめんね、風邪引いちゃってて🤧…大丈夫、ただの風邪だからすぐ治るよ🥺", file: "19.wav" },
+  { cat: "emoji", text: "なーに、どうしたの？…え？もっと近づいてほしい？…\ud83d\udc42\ud83d\ude2e\u200d\ud83d\udca8\ud83d\udc42\ud83d\ude2e\u200d\ud83d\udca8こういうのが好きなんだ？", file: "17.wav" },
+  { cat: "emoji", text: "うぅ…\ud83d\ude2dそんなに酷いこと、言わないで…\ud83d\ude2d", file: "18.wav" },
+  { cat: "emoji", text: "\ud83e\udd27\ud83e\udd27ごめんね、風邪引いちゃってて\ud83e\udd27…大丈夫、ただの風邪だからすぐ治るよ\ud83e\udd7a", file: "19.wav" },
+  { cat: "voicedesign", text: "明日の午後に予定していた会議だけど、急遽来週に延期になったみたい。悪いんだけど、資料の準備は一旦ストップしておいてくれるかな。", file: "vd_00.wav", caption: "低い声の女性が、苛立ちを隠せない様子で焦って話している。クリアな音質、少し感情的なトーンで、呆れたような様子。" },
+  { cat: "voicedesign", text: "おかしいな、さっきまで確かにここにあったはずなんだけど。誰かが気を利かせて、別の場所に片付けちゃったのかな。", file: "vd_01.wav", caption: "やや高めの男性の声で、気遣いを見せて申し訳なさそうなトーンでやさしく話してほしい。" },
+  { cat: "voicedesign", text: "これ\ud83d\ude20、昨日からずっと机の上に置きっぱなしになってますよ\ud83d\ude12早く片付けておいてくださいね\ud83d\ude20", file: "vd_02.wav", caption: "低めの女性の声で、嫌悪感を示しながら怒っているように話してほしいです。途中で舌打ちを挟み、強い憎しみを持って見下している感じで。" },
 ];
 
 let currentlyPlaying = null;
 
+function switchModel(model) {
+  currentModel = model;
+  document.getElementById("btn-model-normal").className = model === "normal" ? "active" : "";
+  document.getElementById("btn-model-vd").className = model === "voicedesign" ? "active" : "";
+  document.getElementById("caption-area").className = model === "voicedesign" ? "caption-area show" : "caption-area";
+}
+
 function renderPresets() {
-  const groups = { chuuni: [], heroine: [], asmr: [], standard: [], emoji: [] };
-  PRESETS.forEach((p, i) => groups[p.cat].push({ ...p, id: i }));
-  for (const [cat, items] of Object.entries(groups)) {
-    document.getElementById(`samples-${cat}`).innerHTML = items.map(p => `
-      <div class="sample-item">
-        <div class="sample-top">
-          <button class="sample-play" id="play-${p.id}" onclick="togglePlay(${p.id})">&#9654;</button>
-          <div class="sample-text" onclick="document.getElementById('text').value=PRESETS[${p.id}].text">${p.text}</div>
-        </div>
-        <div class="sample-audio" id="audio-wrap-${p.id}">
-          <audio id="sample-audio-${p.id}" src="${BASE}/presets/${p.file}" preload="auto" onended="onEnded(${p.id})"></audio>
-        </div>
-      </div>`).join('');
+  const groups = { chuuni: [], heroine: [], asmr: [], standard: [], emoji: [], voicedesign: [] };
+  PRESETS.forEach(function(p, i) { groups[p.cat].push(Object.assign({}, p, { id: i })); });
+  Object.keys(groups).forEach(function(cat) {
+    var items = groups[cat];
+    var el = document.getElementById("samples-" + cat);
+    if (!el) return;
+    el.innerHTML = items.map(function(p) {
+      var captionHtml = p.caption ? '<div class="sample-caption">\ud83c\udfa4 ' + p.caption + '</div>' : '';
+      return '<div class="sample-item">' +
+        '<div class="sample-top">' +
+          '<button class="sample-play" id="play-' + p.id + '" onclick="togglePlay(' + p.id + ')">&#9654;</button>' +
+          '<div class="sample-text" onclick="fillFromPreset(' + p.id + ')">' + PRESETS[p.id].text + '</div>' +
+        '</div>' +
+        captionHtml +
+        '<div class="sample-audio" id="audio-wrap-' + p.id + '">' +
+          '<audio id="sample-audio-' + p.id + '" src="' + BASE + '/presets/' + p.file + '" preload="auto" onended="onEnded(' + p.id + ')"></audio>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  });
+}
+
+function fillFromPreset(id) {
+  var p = PRESETS[id];
+  document.getElementById("text").value = p.text;
+  if (p.caption) {
+    switchModel("voicedesign");
+    document.getElementById("caption").value = p.caption;
   }
 }
 
 function togglePlay(id) {
-  const audio = document.getElementById(`sample-audio-${id}`);
-  const btn = document.getElementById(`play-${id}`);
-  const wrap = document.getElementById(`audio-wrap-${id}`);
+  var audio = document.getElementById("sample-audio-" + id);
+  var btn = document.getElementById("play-" + id);
+  var wrap = document.getElementById("audio-wrap-" + id);
 
   if (currentlyPlaying !== null && currentlyPlaying !== id) {
-    const prev = document.getElementById(`sample-audio-${currentlyPlaying}`);
-    const prevBtn = document.getElementById(`play-${currentlyPlaying}`);
+    var prev = document.getElementById("sample-audio-" + currentlyPlaying);
+    var prevBtn = document.getElementById("play-" + currentlyPlaying);
     if (prev) { prev.pause(); prev.currentTime = 0; }
-    if (prevBtn) { prevBtn.className = 'sample-play'; prevBtn.innerHTML = '&#9654;'; }
-    document.getElementById(`audio-wrap-${currentlyPlaying}`).style.display = 'none';
+    if (prevBtn) { prevBtn.className = "sample-play"; prevBtn.innerHTML = "&#9654;"; }
+    document.getElementById("audio-wrap-" + currentlyPlaying).style.display = "none";
   }
 
   if (audio.paused) {
     audio.play();
-    btn.className = 'sample-play playing';
-    btn.innerHTML = '&#9632;';
-    wrap.style.display = 'block';
+    btn.className = "sample-play playing";
+    btn.innerHTML = "&#9632;";
+    wrap.style.display = "block";
     currentlyPlaying = id;
   } else {
     audio.pause();
     audio.currentTime = 0;
-    btn.className = 'sample-play';
-    btn.innerHTML = '&#9654;';
-    wrap.style.display = 'none';
+    btn.className = "sample-play";
+    btn.innerHTML = "&#9654;";
+    wrap.style.display = "none";
     currentlyPlaying = null;
   }
 }
 
 function onEnded(id) {
-  const btn = document.getElementById(`play-${id}`);
-  if (btn) { btn.className = 'sample-play'; btn.innerHTML = '&#9654;'; }
+  var btn = document.getElementById("play-" + id);
+  if (btn) { btn.className = "sample-play"; btn.innerHTML = "&#9654;"; }
   currentlyPlaying = null;
 }
 
-function addHistory(text, audioUrl, elapsed) {
-  const now = new Date().toLocaleTimeString('ja-JP');
-  hist.unshift({ text, audioUrl, elapsed, time: now });
-  document.getElementById('history-list').innerHTML = hist.map(h => `
-    <div class="history-item">
-      <div class="meta">${h.time} | ${h.elapsed}秒</div>
-      <div style="font-size:0.9em">${h.text.slice(0, 100)}${h.text.length > 100 ? '...' : ''}</div>
-      <audio controls src="${h.audioUrl}" style="width:100%;margin-top:4px"></audio>
-    </div>
-  `).join('');
+function addHistory(text, caption, audioUrl, elapsed) {
+  var now = new Date().toLocaleTimeString("ja-JP");
+  var model = caption ? "VoiceDesign" : "\u901a\u5e38\u7248";
+  hist.unshift({ text: text, caption: caption, audioUrl: audioUrl, elapsed: elapsed, time: now, model: model });
+  document.getElementById("history-list").innerHTML = hist.map(function(h) {
+    var captionLine = h.caption ? '<div style="font-size:0.8em;color:#888;font-style:italic;">\ud83c\udfa4 ' + h.caption + '</div>' : '';
+    return '<div class="history-item">' +
+      '<div class="meta">' + h.time + ' | ' + h.model + ' | ' + h.elapsed + '\u79d2</div>' +
+      '<div style="font-size:0.9em">' + h.text.slice(0, 100) + (h.text.length > 100 ? '...' : '') + '</div>' +
+      captionLine +
+      '<audio controls src="' + h.audioUrl + '" style="width:100%;margin-top:4px"></audio>' +
+    '</div>';
+  }).join('');
 }
 
 async function generate() {
-  const btn = document.getElementById('btn');
-  const status = document.getElementById('status');
-  const audio = document.getElementById('audio');
-  const text = document.getElementById('text').value.trim();
-  const steps = parseInt(document.getElementById('steps').value);
+  var btn = document.getElementById("btn");
+  var status = document.getElementById("status");
+  var audio = document.getElementById("audio");
+  var text = document.getElementById("text").value.trim();
+  var steps = parseInt(document.getElementById("steps").value);
+  var caption = currentModel === "voicedesign" ? document.getElementById("caption").value.trim() : null;
   if (!text) return;
 
+  var apiPath = currentModel === "voicedesign" ? "/api/voicedesign/v1/tts" : "/api/irodori/v1/tts";
+  var body = { text: text, num_steps: steps };
+  if (caption) body.caption = caption;
+
   btn.disabled = true;
-  status.textContent = '生成中...';
-  const t0 = performance.now();
+  status.textContent = "\u751f\u6210\u4e2d... (" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901a\u5e38\u7248") + ")";
+  var t0 = performance.now();
 
   try {
-    const res = await fetch(`${BASE}/api/irodori/v1/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, num_steps: steps })
+    var res = await fetch(BASE + apiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var elapsed = ((performance.now() - t0) / 1000).toFixed(1);
     audio.src = url;
-    audio.style.display = 'block';
+    audio.style.display = "block";
     audio.play();
-    status.textContent = `生成完了 (${elapsed}秒)`;
-    addHistory(text, url, elapsed);
+    status.textContent = "\u751f\u6210\u5b8c\u4e86 (" + elapsed + "\u79d2) [" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901a\u5e38\u7248") + "]";
+    addHistory(text, caption, url, elapsed);
   } catch (e) {
-    status.textContent = `エラー: ${e.message}`;
+    status.textContent = "\u30a8\u30e9\u30fc: " + e.message;
   }
   btn.disabled = false;
 }
