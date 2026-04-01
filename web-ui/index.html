@@ -50,6 +50,12 @@ input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1
 
   <h2 style="margin-top: 16px;">ASMR</h2>
   <div id="samples-asmr"></div>
+
+  <h2 style="margin-top: 16px;">標準TTS（HFサンプル）</h2>
+  <div id="samples-standard"></div>
+
+  <h2 style="margin-top: 16px;">絵文字スタイル制御（HFサンプル）</h2>
+  <div id="samples-emoji"></div>
 </div>
 
 <div class="history">
@@ -77,12 +83,17 @@ const PRESETS = [
   { cat: "asmr", text: "しーっ、静かにして。今から耳のマッサージしてあげるから、リラックスしてね。", file: "12.wav" },
   { cat: "asmr", text: "雨の音、聞こえるかな。こうやって二人で静かに過ごす時間が、私は好きだよ。", file: "13.wav" },
   { cat: "asmr", text: "おやすみ。いい夢見てね。明日もきっと、いいことあるから。ふふ、おやすみなさい。", file: "14.wav" },
+  { cat: "standard", text: "お電話ありがとうございます。ただいま電話が大変混み合っております。恐れ入りますが、発信音のあとに、ご用件をお話しください。", file: "15.wav" },
+  { cat: "standard", text: "その森には、古い言い伝えがありました。月が最も高く昇る夜、静かに耳を澄ませば、風の歌声が聞こえるというのです。私は半信半疑でしたが、その夜、確かに誰かが私を呼ぶ声を聞いたのです。", file: "16.wav" },
+  { cat: "emoji", text: "なーに、どうしたの？…え？もっと近づいてほしい？…👂😮\u200d💨👂😮\u200d💨こういうのが好きなんだ？", file: "17.wav" },
+  { cat: "emoji", text: "うぅ…😭そんなに酷いこと、言わないで…😭", file: "18.wav" },
+  { cat: "emoji", text: "🤧🤧ごめんね、風邪引いちゃってて🤧…大丈夫、ただの風邪だからすぐ治るよ🥺", file: "19.wav" },
 ];
 
 let currentlyPlaying = null;
 
 function renderPresets() {
-  const groups = { chuuni: [], heroine: [], asmr: [] };
+  const groups = { chuuni: [], heroine: [], asmr: [], standard: [], emoji: [] };
   PRESETS.forEach((p, i) => groups[p.cat].push({ ...p, id: i }));
   for (const [cat, items] of Object.entries(groups)) {
     document.getElementById(`samples-${cat}`).innerHTML = items.map(p => `
