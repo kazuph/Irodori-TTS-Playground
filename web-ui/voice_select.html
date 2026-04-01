@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声の選択</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; max-width: 600px; margin: 0 auto; }
+h1 { font-size: 1.4em; margin-bottom: 8px; text-align: center; }
+p { text-align: center; color: #aaa; font-size: 0.9em; margin-bottom: 16px; }
+.voice-item { background: #16213e; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.voice-item h3 { font-size: 1em; margin-bottom: 8px; }
+audio { width: 100%; }
+</style>
+</head>
+<body>
+<h1>リファレンス声の候補</h1>
+<p>同じテキストを異なるシードで生成。好みの声を選んでください。</p>
+
+<div class="voice-item"><h3>候補 1 (seed=1)</h3><audio controls src="/voices/female_candidate_1.wav"></audio></div>
+<div class="voice-item"><h3>候補 2 (seed=2)</h3><audio controls src="/voices/female_candidate_2.wav"></audio></div>
+<div class="voice-item"><h3>候補 3 (seed=3)</h3><audio controls src="/voices/female_candidate_3.wav"></audio></div>
+<div class="voice-item"><h3>候補 4 (seed=4)</h3><audio controls src="/voices/female_candidate_4.wav"></audio></div>
+<div class="voice-item"><h3>候補 5 (seed=5)</h3><audio controls src="/voices/female_candidate_5.wav"></audio></div>
+
+<p style="margin-top: 24px;"><a href="/" style="color: #e94560;">← メインに戻る</a></p>
+</body>
+</html>

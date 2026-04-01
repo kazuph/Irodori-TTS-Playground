@@ -1,0 +1,52 @@
+services:
+  irodori-tts:
+    build:
+      context: ./irodori-tts
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - IRODORI_HF_CHECKPOINT=Aratako/Irodori-TTS-500M-v2
+      - IRODORI_DEVICE=cuda
+      - IRODORI_PRECISION=bf16
+      - IRODORI_PORT=8005
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./web-ui/voices:/app/voices:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8005/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 300s
+
+  web-ui:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./web-ui/index.html:/usr/share/nginx/html/index.html:ro
+      - ./web-ui/voice_select.html:/usr/share/nginx/html/voice_select.html:ro
+      - ./web-ui/presets:/usr/share/nginx/html/presets:ro
+      - ./web-ui/voices:/usr/share/nginx/html/voices:ro
+      - ./web-ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - irodori-tts
+
+volumes:
+  hf_cache:
+    external: true
+    name: infra_hf_cache

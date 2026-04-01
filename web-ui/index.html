@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Irodori-TTS</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; max-width: 600px; margin: 0 auto; }
+h1 { font-size: 1.4em; margin-bottom: 16px; text-align: center; }
+label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #aaa; }
+textarea { width: 100%; height: 120px; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #eee; font-size: 1em; resize: vertical; }
+button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; margin-top: 12px; }
+.btn-gen { background: #e94560; color: #fff; }
+.btn-gen:disabled { background: #555; cursor: not-allowed; }
+.status { margin-top: 8px; font-size: 0.85em; color: #aaa; min-height: 1.2em; }
+audio { width: 100%; margin-top: 12px; }
+.samples { margin-top: 20px; }
+.samples h2 { font-size: 1em; margin-bottom: 8px; color: #e94560; }
+.sample-item { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
+.sample-top { display: flex; align-items: center; gap: 8px; }
+.sample-play { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: none; font-size: 1.1em; cursor: pointer; background: #e94560; color: #fff; display: flex; align-items: center; justify-content: center; }
+.sample-play.playing { background: #0f3460; color: #fff; }
+.sample-text { font-size: 0.9em; color: #ccc; flex: 1; cursor: pointer; }
+.sample-audio { margin-top: 6px; display: none; }
+.sample-audio audio { width: 100%; }
+.history { margin-top: 24px; }
+.history-item { background: #16213e; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.history-item .meta { font-size: 0.8em; color: #888; margin-bottom: 4px; }
+input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #eee; }
+</style>
+</head>
+<body>
+<h1>Irodori-TTS</h1>
+
+<label>テキスト</label>
+<textarea id="text" placeholder="日本語テキストを入力...">おはようございます。今日もいい天気ですね。散歩に行きませんか？</textarea>
+<label>ステップ数</label>
+<input type="number" id="steps" value="40" min="1" max="100">
+<button class="btn-gen" id="btn" onclick="generate()">音声生成</button>
+<div class="status" id="status"></div>
+<audio id="audio" controls style="display:none"></audio>
+
+<div class="samples">
+  <h2 style="margin-top: 12px;">中二病セリフ</h2>
+  <div id="samples-chuuni"></div>
+
+  <h2 style="margin-top: 16px;">ラノベ系ヒロイン</h2>
+  <div id="samples-heroine"></div>
+
+  <h2 style="margin-top: 16px;">ASMR</h2>
+  <div id="samples-asmr"></div>
+</div>
+
+<div class="history">
+  <h2 style="font-size:1.1em; margin:16px 0 8px;">履歴</h2>
+  <div id="history-list"></div>
+</div>
+
+<script>
+const BASE = location.origin;
+const hist = [];
+
+const PRESETS = [
+  { cat: "chuuni", text: "くっ、封印されしこの右腕が疼く。まさか、奴らがついに動き出したというのか。", file: "00.wav" },
+  { cat: "chuuni", text: "我が名は闇の使徒ルシフェリア。この世界の真実を知る者は、私ただ一人。", file: "01.wav" },
+  { cat: "chuuni", text: "ふん、貴様ごときに我が漆黒の炎を見せるまでもない。消えろ、雑魚が。", file: "02.wav" },
+  { cat: "chuuni", text: "目覚めよ、我が内なる深淵。契約の刻は満ちた。さあ、世界に終焉を。", file: "03.wav" },
+  { cat: "chuuni", text: "この眼帯の下に封じられし邪眼。解放すれば、お前の精神は一瞬で崩壊する。", file: "04.wav" },
+  { cat: "heroine", text: "べ、別にあんたのために作ったわけじゃないんだからね。たまたま余っただけよ。", file: "05.wav" },
+  { cat: "heroine", text: "先輩、あの、もしよかったら放課後一緒に帰りませんか？今日は夕焼けがきれいだと思うので。", file: "06.wav" },
+  { cat: "heroine", text: "ちょっと、なんで私の隣に座るの？他に席あるでしょ。まあ、座るなとは言わないけど。", file: "07.wav" },
+  { cat: "heroine", text: "私がご主人様のメイドになったのは契約だから。勘違いしないで。好きでやってるんじゃないわ。", file: "08.wav" },
+  { cat: "heroine", text: "ねえ、私たちってさ、前世でも一緒だったと思わない？だってこんなに自然なんだもん。", file: "09.wav" },
+  { cat: "asmr", text: "大丈夫だよ、ここにいるからね。ゆっくり目を閉じて。今日も一日おつかれさま。", file: "10.wav" },
+  { cat: "asmr", text: "ねえ、聞こえる？耳元でそっと囁くね。今夜はずっとそばにいてあげる。", file: "11.wav" },
+  { cat: "asmr", text: "しーっ、静かにして。今から耳のマッサージしてあげるから、リラックスしてね。", file: "12.wav" },
+  { cat: "asmr", text: "雨の音、聞こえるかな。こうやって二人で静かに過ごす時間が、私は好きだよ。", file: "13.wav" },
+  { cat: "asmr", text: "おやすみ。いい夢見てね。明日もきっと、いいことあるから。ふふ、おやすみなさい。", file: "14.wav" },
+];
+
+let currentlyPlaying = null;
+
+function renderPresets() {
+  const groups = { chuuni: [], heroine: [], asmr: [] };
+  PRESETS.forEach((p, i) => groups[p.cat].push({ ...p, id: i }));
+  for (const [cat, items] of Object.entries(groups)) {
+    document.getElementById(`samples-${cat}`).innerHTML = items.map(p => `
+      <div class="sample-item">
+        <div class="sample-top">
+          <button class="sample-play" id="play-${p.id}" onclick="togglePlay(${p.id})">&#9654;</button>
+          <div class="sample-text" onclick="document.getElementById('text').value=PRESETS[${p.id}].text">${p.text}</div>
+        </div>
+        <div class="sample-audio" id="audio-wrap-${p.id}">
+          <audio id="sample-audio-${p.id}" src="${BASE}/presets/${p.file}" preload="auto" onended="onEnded(${p.id})"></audio>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function togglePlay(id) {
+  const audio = document.getElementById(`sample-audio-${id}`);
+  const btn = document.getElementById(`play-${id}`);
+  const wrap = document.getElementById(`audio-wrap-${id}`);
+
+  if (currentlyPlaying !== null && currentlyPlaying !== id) {
+    const prev = document.getElementById(`sample-audio-${currentlyPlaying}`);
+    const prevBtn = document.getElementById(`play-${currentlyPlaying}`);
+    if (prev) { prev.pause(); prev.currentTime = 0; }
+    if (prevBtn) { prevBtn.className = 'sample-play'; prevBtn.innerHTML = '&#9654;'; }
+    document.getElementById(`audio-wrap-${currentlyPlaying}`).style.display = 'none';
+  }
+
+  if (audio.paused) {
+    audio.play();
+    btn.className = 'sample-play playing';
+    btn.innerHTML = '&#9632;';
+    wrap.style.display = 'block';
+    currentlyPlaying = id;
+  } else {
+    audio.pause();
+    audio.currentTime = 0;
+    btn.className = 'sample-play';
+    btn.innerHTML = '&#9654;';
+    wrap.style.display = 'none';
+    currentlyPlaying = null;
+  }
+}
+
+function onEnded(id) {
+  const btn = document.getElementById(`play-${id}`);
+  if (btn) { btn.className = 'sample-play'; btn.innerHTML = '&#9654;'; }
+  currentlyPlaying = null;
+}
+
+function addHistory(text, audioUrl, elapsed) {
+  const now = new Date().toLocaleTimeString('ja-JP');
+  hist.unshift({ text, audioUrl, elapsed, time: now });
+  document.getElementById('history-list').innerHTML = hist.map(h => `
+    <div class="history-item">
+      <div class="meta">${h.time} | ${h.elapsed}秒</div>
+      <div style="font-size:0.9em">${h.text.slice(0, 100)}${h.text.length > 100 ? '...' : ''}</div>
+      <audio controls src="${h.audioUrl}" style="width:100%;margin-top:4px"></audio>
+    </div>
+  `).join('');
+}
+
+async function generate() {
+  const btn = document.getElementById('btn');
+  const status = document.getElementById('status');
+  const audio = document.getElementById('audio');
+  const text = document.getElementById('text').value.trim();
+  const steps = parseInt(document.getElementById('steps').value);
+  if (!text) return;
+
+  btn.disabled = true;
+  status.textContent = '生成中...';
+  const t0 = performance.now();
+
+  try {
+    const res = await fetch(`${BASE}/api/irodori/v1/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, num_steps: steps })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+    audio.src = url;
+    audio.style.display = 'block';
+    audio.play();
+    status.textContent = `生成完了 (${elapsed}秒)`;
+    addHistory(text, url, elapsed);
+  } catch (e) {
+    status.textContent = `エラー: ${e.message}`;
+  }
+  btn.disabled = false;
+}
+
+renderPresets();
+</script>
+</body>
+</html>

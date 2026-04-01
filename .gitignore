@@ -1,0 +1,14 @@
+# Generated audio presets (large binary files)
+web-ui/presets/*.wav
+web-ui/voices/*.wav
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Docker volumes
+data/
+
+# OS
+.DS_Store
