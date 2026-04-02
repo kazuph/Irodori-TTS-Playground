@@ -19,7 +19,8 @@ RUN uv sync --python python3.11
 RUN uv pip install fastapi uvicorn[standard] soundfile numpy
 
 COPY server.py /app/irodori-tts/server.py
+COPY start.sh /app/irodori-tts/start.sh
 
-EXPOSE 8006
+EXPOSE 8006 7860
 
-CMD ["/app/irodori-tts/.venv/bin/python", "server.py"]
+CMD ["/bin/bash", "/app/irodori-tts/start.sh"]

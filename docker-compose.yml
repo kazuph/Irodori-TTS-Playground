@@ -39,6 +39,7 @@ services:
     restart: unless-stopped
     ports:
       - "8006:8006"
+      - "7860:7860"
     environment:
       - HF_HOME=/root/.cache/huggingface
       - IRODORI_HF_CHECKPOINT=Aratako/Irodori-TTS-500M-v2-VoiceDesign

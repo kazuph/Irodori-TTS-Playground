@@ -6,8 +6,10 @@
 <title>Irodori-TTS</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; max-width: 600px; margin: 0 auto; }
+body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px 32px; max-width: 1200px; margin: 0 auto; }
 h1 { font-size: 1.4em; margin-bottom: 16px; text-align: center; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.header h1 { margin-bottom: 0; flex: 1; }
 label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #aaa; }
 textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #eee; font-size: 1em; resize: vertical; }
 #text { height: 120px; }
@@ -17,14 +19,27 @@ button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size
 .btn-gen:disabled { background: #555; cursor: not-allowed; }
 .status { margin-top: 8px; font-size: 0.85em; color: #aaa; min-height: 1.2em; }
 audio { width: 100%; margin-top: 12px; }
-.model-switch { display: flex; gap: 0; margin: 12px 0; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
+.model-switch { display: flex; gap: 0; border-radius: 8px; overflow: hidden; border: 1px solid #444; flex-shrink: 0; }
 .model-switch button { flex: 1; padding: 10px; border: none; background: #16213e; color: #aaa; font-size: 0.9em; cursor: pointer; margin: 0; border-radius: 0; }
 .model-switch button.active { background: #e94560; color: #fff; }
 .caption-area { display: none; }
 .caption-area.show { display: block; }
+.caption-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { padding: 5px 10px; background: #16213e; border: 1px solid #444; border-radius: 16px; font-size: 0.8em; color: #ccc; cursor: pointer; transition: all 0.15s; }
+.chip:hover { border-color: #e94560; color: #fff; }
+.emoji-palette { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 6px; }
+.emoji-btn { width: 32px; height: 32px; border: 1px solid #333; border-radius: 6px; background: #16213e; font-size: 1.1em; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: all 0.1s; }
+.emoji-btn:hover { border-color: #e94560; background: #0f3460; transform: scale(1.2); }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .samples { margin-top: 20px; }
-.samples h2 { font-size: 1em; margin-bottom: 8px; color: #e94560; }
-.sample-item { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
+.section-header { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 16px; margin-bottom: 8px; user-select: none; }
+.section-header h2 { font-size: 1em; color: #e94560; margin: 0; }
+.section-toggle { font-size: 0.8em; color: #888; transition: transform 0.2s; }
+.section-toggle.collapsed { transform: rotate(-90deg); }
+.section-content { overflow: hidden; transition: max-height 0.3s ease; }
+.section-content.collapsed { max-height: 0 !important; overflow: hidden; }
+.sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 6px; }
+.sample-item { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; }
 .sample-top { display: flex; align-items: center; gap: 8px; }
 .sample-play { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: none; font-size: 1.1em; cursor: pointer; background: #e94560; color: #fff; display: flex; align-items: center; justify-content: center; }
 .sample-play.playing { background: #0f3460; color: #fff; }
@@ -32,6 +47,10 @@ audio { width: 100%; margin-top: 12px; }
 .sample-caption { font-size: 0.8em; color: #888; margin-top: 4px; font-style: italic; padding-left: 44px; }
 .sample-audio { margin-top: 6px; display: none; }
 .sample-audio audio { width: 100%; }
+.quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
+.quick-item { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.85em; color: #ccc; transition: all 0.15s; }
+.quick-item:hover { border-color: #e94560; color: #fff; }
+.quick-item.generating { border-color: #e94560; background: #0f3460; }
 .history { margin-top: 24px; }
 .history-item { background: #16213e; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
 .history-item .meta { font-size: 0.8em; color: #888; margin-bottom: 4px; }
@@ -39,84 +58,238 @@ input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1
 </style>
 </head>
 <body>
-<h1>Irodori-TTS</h1>
-
-<div class="model-switch">
-  <button id="btn-model-normal" class="active" onclick="switchModel('normal')">通常版</button>
-  <button id="btn-model-vd" onclick="switchModel('voicedesign')">VoiceDesign</button>
+<div class="header">
+  <h1>Irodori-TTS</h1>
+  <div class="model-switch">
+    <button id="btn-model-normal" class="active" onclick="switchModel('normal')">&#x901A;&#x5E38;&#x7248;</button>
+    <button id="btn-model-vd" onclick="switchModel('voicedesign')">VoiceDesign</button>
+  </div>
 </div>
 
-<label>テキスト</label>
-<textarea id="text" placeholder="日本語テキストを入力...">おはようございます。今日もいい天気ですね。散歩に行きませんか？</textarea>
+<div class="controls">
+  <div class="controls-left">
+    <label style="display:flex;align-items:center;gap:8px;">&#x30C6;&#x30AD;&#x30B9;&#x30C8;<span onclick="document.getElementById('text').value='';document.getElementById('text').focus()" style="font-size:0.75em;color:#888;cursor:pointer;background:#16213e;border:1px solid #444;border-radius:4px;padding:1px 6px;">&times; &#x30AF;&#x30EA;&#x30A2;</span></label>
+    <textarea id="text" placeholder="&#x65E5;&#x672C;&#x8A9E;&#x30C6;&#x30AD;&#x30B9;&#x30C8;&#x3092;&#x5165;&#x529B;...">&#x304A;&#x306F;&#x3088;&#x3046;&#x3054;&#x3056;&#x3044;&#x307E;&#x3059;&#x3002;&#x4ECA;&#x65E5;&#x3082;&#x3044;&#x3044;&#x5929;&#x6C17;&#x3067;&#x3059;&#x306D;&#x3002;&#x6563;&#x6B69;&#x306B;&#x884C;&#x304D;&#x307E;&#x305B;&#x3093;&#x304B;&#xFF1F;</textarea>
+    <div class="emoji-palette" id="emoji-palette"></div>
+  </div>
+  <div class="controls-right">
+    <label>&#x30B9;&#x30C6;&#x30C3;&#x30D7;&#x6570;</label>
+    <input type="number" id="steps" value="40" min="1" max="100">
+    <button class="btn-gen" id="btn" onclick="generate()">&#x97F3;&#x58F0;&#x751F;&#x6210;</button>
+    <div class="status" id="status"></div>
+    <audio id="audio" controls style="display:none"></audio>
+  </div>
+</div>
 
 <div id="caption-area" class="caption-area">
-  <label>Voice Design キャプション</label>
-  <textarea id="caption" placeholder="声質の説明を入力...（例: 低い声の女性が、優しく話している）"></textarea>
+  <label>Voice Design &#x30AD;&#x30E3;&#x30D7;&#x30B7;&#x30E7;&#x30F3;</label>
+  <textarea id="caption" placeholder="&#x58F0;&#x8CEA;&#x306E;&#x8AAC;&#x660E;&#x3092;&#x5165;&#x529B;...&#xFF08;&#x4F8B;: &#x4F4E;&#x3044;&#x58F0;&#x306E;&#x5973;&#x6027;&#x304C;&#x3001;&#x512A;&#x3057;&#x304F;&#x8A71;&#x3057;&#x3066;&#x3044;&#x308B;&#xFF09;"></textarea>
+  <div class="caption-chips">
+    <span class="chip" onclick="setCaption(this)">&#x660E;&#x308B;&#x304F;&#x5143;&#x6C17;&#x306A;&#x82E5;&#x3044;&#x5973;&#x6027;&#x306E;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x843D;&#x3061;&#x7740;&#x3044;&#x305F;&#x5927;&#x4EBA;&#x306E;&#x7537;&#x6027;&#x304C;&#x4F4E;&#x304F;&#x3086;&#x3063;&#x304F;&#x308A;&#x8A9E;&#x308A;&#x304B;&#x3051;&#x308B;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x5E7C;&#x3044;&#x5B50;&#x4F9B;&#x304C;&#x7121;&#x90AA;&#x6C17;&#x306B;&#x306F;&#x3057;&#x3083;&#x3044;&#x3067;&#x3044;&#x308B;&#x9AD8;&#x3044;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x30AF;&#x30FC;&#x30EB;&#x3067;&#x5F37;&#x6C17;&#x306A;&#x5C11;&#x5973;&#x304C;&#x898B;&#x4E0B;&#x3059;&#x3088;&#x3046;&#x306B;&#x8A71;&#x3059;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x8001;&#x9F62;&#x306E;&#x8CE2;&#x8005;&#x304C;&#x9759;&#x304B;&#x306B;&#x8AED;&#x3059;&#x3088;&#x3046;&#x306A;&#x3057;&#x308F;&#x304C;&#x308C;&#x305F;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x7518;&#x304F;&#x56C1;&#x304F;&#x3088;&#x3046;&#x306A;&#x5973;&#x6027;&#x306E;ASMR&#x98A8;&#x306E;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x5A01;&#x5727;&#x7684;&#x3067;&#x5730;&#x306E;&#x5E95;&#x304B;&#x3089;&#x97FF;&#x304F;&#x3088;&#x3046;&#x306A;&#x60AA;&#x9B54;&#x306E;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x611F;&#x60C5;&#x306E;&#x306A;&#x3044;&#x6A5F;&#x68B0;&#x7684;&#x3067;&#x5358;&#x8ABF;&#x306A;&#x30ED;&#x30DC;&#x30C3;&#x30C8;&#x306E;&#x58F0;</span>
+    <span class="chip" onclick="setCaption(this)">&#x6CE3;&#x304D;&#x305D;&#x3046;&#x306B;&#x306A;&#x308A;&#x306A;&#x304C;&#x3089;&#x9707;&#x3048;&#x308B;&#x58F0;&#x3067;&#x5FC5;&#x6B7B;&#x306B;&#x8A71;&#x3059;&#x5C11;&#x5973;</span>
+    <span class="chip" onclick="setCaption(this)">&#x8C6A;&#x5FEB;&#x306B;&#x7B11;&#x3044;&#x306A;&#x304C;&#x3089;&#x967D;&#x6C17;&#x306B;&#x8A71;&#x3059;&#x304A;&#x3058;&#x3055;&#x3093;&#x306E;&#x58F0;</span>
+  </div>
 </div>
 
-<label>ステップ数</label>
-<input type="number" id="steps" value="40" min="1" max="100">
-<button class="btn-gen" id="btn" onclick="generate()">音声生成</button>
-<div class="status" id="status"></div>
-<audio id="audio" controls style="display:none"></audio>
-
-<div class="samples">
-  <h2 style="margin-top: 12px;">中二病セリフ</h2>
-  <div id="samples-chuuni"></div>
-
-  <h2 style="margin-top: 16px;">ラノベ系ヒロイン</h2>
-  <div id="samples-heroine"></div>
-
-  <h2 style="margin-top: 16px;">ASMR</h2>
-  <div id="samples-asmr"></div>
-
-  <h2 style="margin-top: 16px;">標準TTS（HFサンプル）</h2>
-  <div id="samples-standard"></div>
-
-  <h2 style="margin-top: 16px;">絵文字スタイル制御（HFサンプル）</h2>
-  <div id="samples-emoji"></div>
-
-  <h2 style="margin-top: 16px;">VoiceDesign（HFサンプル）</h2>
-  <div id="samples-voicedesign"></div>
-</div>
+<div class="samples" id="samples-container"></div>
 
 <div class="history">
-  <h2 style="font-size:1.1em; margin:16px 0 8px;">履歴</h2>
-  <div id="history-list"></div>
+  <div class="section-header" onclick="toggleSection('history')">
+    <span class="section-toggle" id="toggle-history">&#x25BC;</span>
+    <h2 style="color:#aaa">&#x5C65;&#x6B74;</h2>
+  </div>
+  <div class="section-content" id="content-history">
+    <div id="history-list"></div>
+  </div>
 </div>
 
 <script>
-const BASE = location.origin;
-const hist = [];
-let currentModel = "normal";
+var BASE = location.origin;
+var hist = [];
+var currentModel = "normal";
+var currentlyPlaying = null;
 
-const PRESETS = [
-  { cat: "chuuni", text: "くっ、封印されしこの右腕が疼く。まさか、奴らがついに動き出したというのか。", file: "00.wav" },
-  { cat: "chuuni", text: "我が名は闇の使徒ルシフェリア。この世界の真実を知る者は、私ただ一人。", file: "01.wav" },
-  { cat: "chuuni", text: "ふん、貴様ごときに我が漆黒の炎を見せるまでもない。消えろ、雑魚が。", file: "02.wav" },
-  { cat: "chuuni", text: "目覚めよ、我が内なる深淵。契約の刻は満ちた。さあ、世界に終焉を。", file: "03.wav" },
-  { cat: "chuuni", text: "この眼帯の下に封じられし邪眼。解放すれば、お前の精神は一瞬で崩壊する。", file: "04.wav" },
-  { cat: "heroine", text: "べ、別にあんたのために作ったわけじゃないんだからね。たまたま余っただけよ。", file: "05.wav" },
-  { cat: "heroine", text: "先輩、あの、もしよかったら放課後一緒に帰りませんか？今日は夕焼けがきれいだと思うので。", file: "06.wav" },
-  { cat: "heroine", text: "ちょっと、なんで私の隣に座るの？他に席あるでしょ。まあ、座るなとは言わないけど。", file: "07.wav" },
-  { cat: "heroine", text: "私がご主人様のメイドになったのは契約だから。勘違いしないで。好きでやってるんじゃないわ。", file: "08.wav" },
-  { cat: "heroine", text: "ねえ、私たちってさ、前世でも一緒だったと思わない？だってこんなに自然なんだもん。", file: "09.wav" },
-  { cat: "asmr", text: "大丈夫だよ、ここにいるからね。ゆっくり目を閉じて。今日も一日おつかれさま。", file: "10.wav" },
-  { cat: "asmr", text: "ねえ、聞こえる？耳元でそっと囁くね。今夜はずっとそばにいてあげる。", file: "11.wav" },
-  { cat: "asmr", text: "しーっ、静かにして。今から耳のマッサージしてあげるから、リラックスしてね。", file: "12.wav" },
-  { cat: "asmr", text: "雨の音、聞こえるかな。こうやって二人で静かに過ごす時間が、私は好きだよ。", file: "13.wav" },
-  { cat: "asmr", text: "おやすみ。いい夢見てね。明日もきっと、いいことあるから。ふふ、おやすみなさい。", file: "14.wav" },
-  { cat: "standard", text: "お電話ありがとうございます。ただいま電話が大変混み合っております。恐れ入りますが、発信音のあとに、ご用件をお話しください。", file: "15.wav" },
-  { cat: "standard", text: "その森には、古い言い伝えがありました。月が最も高く昇る夜、静かに耳を澄ませば、風の歌声が聞こえるというのです。私は半信半疑でしたが、その夜、確かに誰かが私を呼ぶ声を聞いたのです。", file: "16.wav" },
-  { cat: "emoji", text: "なーに、どうしたの？…え？もっと近づいてほしい？…\ud83d\udc42\ud83d\ude2e\u200d\ud83d\udca8\ud83d\udc42\ud83d\ude2e\u200d\ud83d\udca8こういうのが好きなんだ？", file: "17.wav" },
-  { cat: "emoji", text: "うぅ…\ud83d\ude2dそんなに酷いこと、言わないで…\ud83d\ude2d", file: "18.wav" },
-  { cat: "emoji", text: "\ud83e\udd27\ud83e\udd27ごめんね、風邪引いちゃってて\ud83e\udd27…大丈夫、ただの風邪だからすぐ治るよ\ud83e\udd7a", file: "19.wav" },
-  { cat: "voicedesign", text: "明日の午後に予定していた会議だけど、急遽来週に延期になったみたい。悪いんだけど、資料の準備は一旦ストップしておいてくれるかな。", file: "vd_00.wav", caption: "低い声の女性が、苛立ちを隠せない様子で焦って話している。クリアな音質、少し感情的なトーンで、呆れたような様子。" },
-  { cat: "voicedesign", text: "おかしいな、さっきまで確かにここにあったはずなんだけど。誰かが気を利かせて、別の場所に片付けちゃったのかな。", file: "vd_01.wav", caption: "やや高めの男性の声で、気遣いを見せて申し訳なさそうなトーンでやさしく話してほしい。" },
-  { cat: "voicedesign", text: "これ\ud83d\ude20、昨日からずっと机の上に置きっぱなしになってますよ\ud83d\ude12早く片付けておいてくださいね\ud83d\ude20", file: "vd_02.wav", caption: "低めの女性の声で、嫌悪感を示しながら怒っているように話してほしいです。途中で舌打ちを挟み、強い憎しみを持って見下している感じで。" },
+var QUICK_SAMPLES = [
+  "\u{1F60A}\u4ECA\u65E5\u306E\u304A\u5F01\u5F53\u3001\u{1F92D}\u3075\u3075\u3063\u{1F92D}\u81EA\u4FE1\u4F5C\u306A\u3093\u3060\u{1F60A}\u304A\u3044\u3057\u3044\u3063\u3066\u8A00\u3063\u3066\u304F\u308C\u308B\u304B\u306A\u{1F97A}",
+  "\u{1F914}\u3042\u308C\u{1F914}\u3053\u306E\u554F\u984C\u306E\u7B54\u3048\u2026\u23F8\uFE0F\u2026\u2026\u23F8\uFE0F\u{1F44C}\u308F\u304B\u3063\u305F\u{1F44C}\u305D\u3046\u3044\u3046\u3053\u3068\u304B\u{1F60C}",
+  "\u{1F631}\u{1F32C}\uFE0F\u3059\u3054\u3044\u98A8\u{1F32C}\uFE0F\u508D\u304C\u98DB\u3093\u3067\u3044\u304F\u{1F631}\u5BB6\u306B\u5E30\u308D\u3046\u{1F630}\u6025\u3044\u3067\u{1F630}",
+  "\u{1F4E2}\u304A\u77E5\u3089\u305B\u3067\u3059\u{1F4E2}\u672C\u65E5\u306E\u4F53\u80B2\u796D\u306F\u{1F62E}\u96E8\u5929\u306E\u305F\u3081\u{1F62D}\u4E2D\u6B62\u3068\u306A\u308A\u307E\u3059\u{1F62D}",
+  "\u{1F971}\u3075\u3041\u3041\u{1F971}\u7720\u3044\u{1F62A}\u6628\u65E5\u5168\u7136\u5BDD\u3066\u306A\u3044\u{1F62A}\u30B3\u30FC\u30D2\u30FC\u{1F964}\u304F\u3060\u3055\u3044\u{1F964}",
+  "\u{1F616}\u75DB\u3063\u{1F616}\u8DB3\u3076\u3064\u3051\u305F\u{1F616}\u{1F62D}\u3044\u305F\u3044\u3088\u30FC\u{1F62D}\u8AB0\u304B\u6C37\u6301\u3063\u3066\u304D\u3066\u{1F64F}",
+  "\u{1F61F}\u5927\u4E08\u592B\u304B\u306A\u{1F61F}\u3042\u306E\u5B50\u{1F61F}\u3072\u3068\u308A\u3067\u5E30\u3063\u3066\u{1F61F}\u5FC3\u914D\u3060\u306A\u3042\u{1F62E}\u200D\u{1F4A8}",
+  "\u{1FAE3}\u3042\u306E\u{1FAE3}\u5B9F\u306F\u{1FAE3}\u624B\u4F5C\u308A\u306E\u30AF\u30C3\u30AD\u30FC\u{1FAE3}\u98DF\u3079\u3066\u304F\u308C\u308B\u{1F97A}\uFF1F\u{1F60A}",
+  "\u{1F644}\u306F\u3044\u306F\u3044\u{1F644}\u307E\u305F\u5BBF\u984C\u5FD8\u308C\u305F\u306E\u{1F644}\u3082\u3046\u4F55\u56DE\u76EE\u{1F612}\u3044\u3044\u52A0\u6E1B\u306B\u3057\u306A\u3055\u3044\u{1F620}",
+  "\u{1F975}\u6691\u3044\u{1F975}\u3082\u3046\u7121\u7406\u{1F975}\u{1F964}\u6C34\u{1F964}\u6C34\u304F\u3060\u3055\u3044\u{1F64F}\u6B7B\u306C\u{1F975}",
+  "\u{1F4DE}\u306F\u3044\u3001\u3082\u3057\u3082\u3057\u{1F4DE}\u{1F60A}\u3042\u3001\u304A\u6BCD\u3055\u3093\u{1F60A}\u5143\u6C17\uFF1F\u{1F60A}\u3046\u3093\u3001\u3053\u3063\u3061\u306F\u5143\u6C17\u3060\u3088\u{1F60C}",
+  "\u{1F927}\u304F\u3057\u3085\u3093\u{1F927}\u3042\u308C\u{1F927}\u82B1\u7C89\u304B\u306A\u{1F927}\u{1F62E}\u200D\u{1F4A8}\u306F\u3041\u{1F62E}\u200D\u{1F4A8}\u30C6\u30A3\u30C3\u30B7\u30E5\u{1F64F}\u304F\u3060\u3055\u3044",
+  "\u23E9\u3042\u308C\u3082\u3053\u308C\u3082\u8CB7\u308F\u306A\u304D\u3083\u23E9\u{1F630}\u30BB\u30FC\u30EB\u7D42\u308F\u3063\u3061\u3083\u3046\u{1F630}\u6025\u3044\u3067\u{1F630}\u6025\u3044\u3067\u23E9",
+  "\u{1F422}\u3080\u304B\u3057\u3080\u304B\u3057\u{1F422}\u3042\u308B\u3068\u3053\u308D\u306B\u{1F422}\u304A\u3058\u3044\u3061\u3083\u3093\u304C\u{1F422}\u3053\u306E\u8A71\u3092\u3057\u3066\u304F\u308C\u305F\u{1F60C}",
+  "\u{1F60F}\u3075\u3063\u{1F60F}\u79C1\u306E\u65B9\u304C\u{1F60F}\u30C6\u30B9\u30C8\u306E\u70B9\u6570\u4E0A\u3060\u3063\u305F\u3051\u3069\u{1F92D}\u307E\u3042\u{1F92D}\u5F53\u7136\u304B\u306A\u{1F92D}",
+  "\u{1F632}\u3048\u3063\u{1F632}\u30B5\u30D7\u30E9\u30A4\u30BA\u{1F632}\u{1F606}\u3084\u3063\u305F\u30FC\u{1F606}\u8A95\u751F\u65E5\u304A\u3081\u3067\u3068\u3046\u{1F606}\u{1F3B5}\u{1F3B5}",
+  "\u{1F442}\u306D\u3047\u{1FAF6}\u7D75\u672C\u8AAD\u3093\u3067\u3042\u3052\u308B\u306D\u{1FAF6}\u{1F422}\u3080\u304B\u30FC\u3057\u3080\u304B\u3057\u{1F422}\u{1F62A}\u304A\u3084\u3059\u307F\u{1F62A}",
+  "\u{1F974}\u3046\u3043\u30FC\u{1F974}\u{1F3B5}\u304B\u3089\u304A\u3051\u304C\u56DE\u308B\u30FC\u{1F3B5}\u{1F92D}\u3042\u306F\u306F\u{1F974}\u697D\u3057\u3044\u306A\u3042\u{1F974}\u304A\u82B1\u898B\u{1F60A}",
+  "\u{1F910}\u3082\u3050\u3082\u3050\u{1F910}\u{1F62E}\u3093\u3063\u{1F62E}\u{1F910}\u53E3\u306B\u30DE\u30B7\u30E5\u30DE\u30ED\u5165\u308C\u3059\u304E\u305F\u{1F910}\u{1F606}\u3042\u306F\u306F\u{1F606}",
+  "\u{1F62E}\u3042\u{1F632}\u898B\u3066\u898B\u3066\u{1F632}\u{1F48B}\u{1F445}\u304A\u3044\u3057\u305D\u3046\u306A\u30B1\u30FC\u30AD\u{1F60A}\u{1F964}\u98F2\u307F\u7269\u3082\u{1F44C}\u5B8C\u74A7\u{1F60C}",
+  "\u{1F62E}\u200D\u{1F4A8}\u3048\u3063\u3068\u2026\u{1F62E}\u200D\u{1F4A8}\u306A\u3093\u3067\u305D\u3093\u306A\u3053\u3068\u8A00\u3046\u306E\u2026\u{1F62D}\u3072\u3069\u3044\u3088\u2026",
+  "\u{1F3B5}\u3075\u3093\u3075\u3093\u3075\u30FC\u3093\u{1F3B5}\u4ECA\u65E5\u306F\u3044\u3044\u5929\u6C17\u{1F60A}\u304A\u6563\u6B69\u65E5\u548C\u3060\u306D\u{1F3B5}",
+  "\u{1F631}\u304D\u3083\u3042\u3042\u3042\u{1F631}\u306A\u3093\u304B\u51FA\u305F\u{1F631}\u305F\u3001\u52A9\u3051\u3066\u{1F62D}\u8AB0\u304B\u6765\u3066\u{1F62D}",
+  "\u{1F442}\u306D\u3047\u2026\u{1F62E}\u200D\u{1F4A8}\u3082\u3046\u5BDD\u3061\u3083\u3046\u306E\u{1F62A}\u{1F62E}\u200D\u{1F4A8}\u304A\u3084\u3059\u307F\u2026\u{1F62E}\u200D\u{1F4A8}",
+  "\u{1F620}\u3075\u3056\u3051\u308B\u306A\u{1F620}\u304A\u524D\u306E\u305B\u3044\u3067\u{1F612}\u5168\u90E8\u53F0\u7121\u3057\u306B\u306A\u3063\u305F\u3058\u3083\u306A\u3044\u304B\u{1F620}",
+  "\u{1F62E}\u{1F4A2}\u3048\u3063\u{1F632}\u307E\u3058\u3067\u{1F632}\u3046\u305D\u3067\u3057\u3087\u{1F644}\u306F\u3044\u306F\u3044\u{1F644}\u3082\u3046\u3044\u3044\u3067\u3059\u3088\u{1F612}",
+  "\u{1F64F}\u304A\u9858\u3044\u3057\u307E\u3059\u{1F64F}\u3069\u3046\u304B\u{1F62D}\u3069\u3046\u304B\u8A31\u3057\u3066\u304F\u3060\u3055\u3044\u{1F64F}\u306A\u3093\u3067\u3082\u3057\u307E\u3059\u304B\u3089\u{1F62D}",
+  "\u{1F910}\u3093\u30FC\u{1F910}\u3093\u3093\u30FC\u{1F910}\u2026\u{1F4A2}\u3082\u3046\u{1F910}\u96E2\u3057\u3066\u{1F620}\u606F\u304C\u3067\u304D\u306A\u3044\u{1F631}",
+  "\u23F8\uFE0F\u2026\u2026\u23F8\uFE0F\u2026\u5B9F\u306F\u2026\u{1F630}\u305A\u3063\u3068\u8A00\u3048\u306A\u304B\u3063\u305F\u3093\u3060\u3051\u3069\u2026\u{1F62D}\u597D\u304D\u3067\u3059",
+  "\u{1F92D}\u3075\u3075\u3063\u{1F92D}\u3042\u306A\u305F\u306E\u9854\u{1F606}\u304A\u304B\u3057\u3059\u304E\u{1F92D}\u3042\u306F\u306F\u306F\u{1F606}\u304A\u8179\u75DB\u3044\u{1F606}",
+  "\u{1F4DE}\u3082\u3057\u3082\u3057\u{1F4DE}\u3042\u3001\u3059\u307F\u307E\u305B\u3093\u{1F630}\u9593\u9055\u3048\u307E\u3057\u305F\u{1F630}\u5931\u793C\u3057\u307E\u3059\u{1F64F}",
+  "\u{1F925}\u3042\u30FC\u{1F925}\u3082\u3046\u7121\u7406\u{1F925}\u4E16\u754C\u304C\u56DE\u3063\u3066\u308B\u{1F925}\u3046\u3043\u30FC\u{1F3B5}\u305F\u306E\u3057\u30FC\u{1F3B5}",
+  "\u23E9\u3042\u306E\u3055\u3042\u3042\u306E\u3042\u308C\u3042\u308C\u3067\u3059\u3088\u23E9\u3061\u3087\u3063\u3068\u5F85\u3063\u3066\u23E9\u3042\u308C\u3082\u3053\u308C\u3082\u23E9\u5168\u90E8\u8A00\u3044\u305F\u3044\u3053\u3068\u304C\u{1F620}",
+  "\u{1F422}\u3080\u304B\u30FC\u3057\u2026\u{1F422}\u3080\u304B\u30FC\u3057\u2026\u{1F422}\u3042\u308B\u3068\u3053\u308D\u306B\u2026\u{1F422}\u304A\u3058\u3044\u3055\u3093\u304C\u2026\u{1F422}\u4F4F\u3093\u3067\u304A\u3063\u305F\u2026",
+  "\u{1F62E}\u200D\u{1F4A8}\u{1F442}\u306D\u3047\u{1F62E}\u200D\u{1F4A8}\u3082\u3046\u3061\u3087\u3063\u3068\u{1F442}\u3053\u3063\u3061\u304A\u3044\u3067\u{1F62E}\u200D\u{1F4A8}\u3044\u3044\u5B50\u3044\u3044\u5B50\u{1FAF6}",
+  "\u{1F635}\u3046\u3045\u2026\u{1F635}\u982D\u304C\u2026\u{1F922}\u6C17\u6301\u3061\u60AA\u3044\u2026\u{1F922}\u98F2\u307F\u3059\u304E\u305F\u2026\u{1F634}\u5BDD\u308B\u2026",
+  "\u{1F632}\u3048\u3063\u{1F632}\u5618\u3067\u3057\u3087\u{1F632}\u672C\u5F53\u306B\u{1F632}\u3084\u3063\u305F\u3041\u{1F606}\u3084\u3063\u305F\u3041\u{1F606}\u3084\u3063\u305F\u3041\u{1F606}",
+  "\u{1F62E}\u200D\u{1F4A8}\u{1F445}\u3093\u2026\u{1F445}\u3093\u3063\u2026\u{1F48B}\u3061\u3085\u2026\u{1F48B}\u{1F62E}\u200D\u{1F4A8}\u3093\u306F\u3041\u2026\u{1F62E}\u200D\u{1F4A8}\u304A\u3044\u3057\u3044\u2026",
+  "\u{1F62D}\u3046\u3045\u2026\u{1F62D}\u3054\u3081\u3093\u306A\u3055\u3044\u{1F62D}\u79C1\u304C\u60AA\u3044\u306E\u{1F62D}\u8A31\u3057\u3066\u{1F64F}\u304A\u9858\u3044\u{1F64F}",
+  "\u{1F60F}\u3075\u30FC\u3093\u{1F60F}\u306A\u308B\u307B\u3069\u306D\u{1F60F}\u3042\u3093\u305F\u3082\u306A\u304B\u306A\u304B\u3084\u308B\u3058\u3083\u3093\u{1F92D}\u3075\u3075\u3063\u{1F92D}"
 ];
 
-let currentlyPlaying = null;
+var PRESETS = [
+  { cat: "chuuni", text: "\u304F\u3063\u3001\u5C01\u5370\u3055\u308C\u3057\u3053\u306E\u53F3\u8155\u304C\u75BC\u304F\u3002\u307E\u3055\u304B\u3001\u5974\u3089\u304C\u3064\u3044\u306B\u52D5\u304D\u51FA\u3057\u305F\u3068\u3044\u3046\u306E\u304B\u3002", file: "00.wav" },
+  { cat: "chuuni", text: "\u6211\u304C\u540D\u306F\u95C7\u306E\u4F7F\u5F92\u30EB\u30B7\u30D5\u30A7\u30EA\u30A2\u3002\u3053\u306E\u4E16\u754C\u306E\u771F\u5B9F\u3092\u77E5\u308B\u8005\u306F\u3001\u79C1\u305F\u3060\u4E00\u4EBA\u3002", file: "01.wav" },
+  { cat: "chuuni", text: "\u3075\u3093\u3001\u8CB4\u69D8\u3054\u3068\u304D\u306B\u6211\u304C\u6F06\u9ED2\u306E\u708E\u3092\u898B\u305B\u308B\u307E\u3067\u3082\u306A\u3044\u3002\u6D88\u3048\u308D\u3001\u96D1\u9B5A\u304C\u3002", file: "02.wav" },
+  { cat: "chuuni", text: "\u76EE\u899A\u3081\u3088\u3001\u6211\u304C\u5185\u306A\u308B\u6DF1\u6DF5\u3002\u5951\u7D04\u306E\u523B\u306F\u6E80\u3061\u305F\u3002\u3055\u3042\u3001\u4E16\u754C\u306B\u7D42\u7109\u3092\u3002", file: "03.wav" },
+  { cat: "chuuni", text: "\u3053\u306E\u773C\u5E2F\u306E\u4E0B\u306B\u5C01\u3058\u3089\u308C\u3057\u90AA\u773C\u3002\u89E3\u653E\u3059\u308C\u3070\u3001\u304A\u524D\u306E\u7CBE\u795E\u306F\u4E00\u77AC\u3067\u5D29\u58CA\u3059\u308B\u3002", file: "04.wav" },
+  { cat: "heroine", text: "\u3079\u3001\u5225\u306B\u3042\u3093\u305F\u306E\u305F\u3081\u306B\u4F5C\u3063\u305F\u308F\u3051\u3058\u3083\u306A\u3044\u3093\u3060\u304B\u3089\u306D\u3002\u305F\u307E\u305F\u307E\u4F59\u3063\u305F\u3060\u3051\u3088\u3002", file: "05.wav" },
+  { cat: "heroine", text: "\u5148\u8F29\u3001\u3042\u306E\u3001\u3082\u3057\u3088\u304B\u3063\u305F\u3089\u653E\u8AB2\u5F8C\u4E00\u7DD2\u306B\u5E30\u308A\u307E\u305B\u3093\u304B\uFF1F\u4ECA\u65E5\u306F\u5915\u713C\u3051\u304C\u304D\u308C\u3044\u3060\u3068\u601D\u3046\u306E\u3067\u3002", file: "06.wav" },
+  { cat: "heroine", text: "\u3061\u3087\u3063\u3068\u3001\u306A\u3093\u3067\u79C1\u306E\u96A3\u306B\u5EA7\u308B\u306E\uFF1F\u4ED6\u306B\u5E2D\u3042\u308B\u3067\u3057\u3087\u3002\u307E\u3042\u3001\u5EA7\u308B\u306A\u3068\u306F\u8A00\u308F\u306A\u3044\u3051\u3069\u3002", file: "07.wav" },
+  { cat: "heroine", text: "\u79C1\u304C\u3054\u4E3B\u4EBA\u69D8\u306E\u30E1\u30A4\u30C9\u306B\u306A\u3063\u305F\u306E\u306F\u5951\u7D04\u3060\u304B\u3089\u3002\u52D8\u9055\u3044\u3057\u306A\u3044\u3067\u3002\u597D\u304D\u3067\u3084\u3063\u3066\u308B\u3093\u3058\u3083\u306A\u3044\u308F\u3002", file: "08.wav" },
+  { cat: "heroine", text: "\u306D\u3048\u3001\u79C1\u305F\u3061\u3063\u3066\u3055\u3001\u524D\u4E16\u3067\u3082\u4E00\u7DD2\u3060\u3063\u305F\u3068\u601D\u308F\u306A\u3044\uFF1F\u3060\u3063\u3066\u3053\u3093\u306A\u306B\u81EA\u7136\u306A\u3093\u3060\u3082\u3093\u3002", file: "09.wav" },
+  { cat: "asmr", text: "\u5927\u4E08\u592B\u3060\u3088\u3001\u3053\u3053\u306B\u3044\u308B\u304B\u3089\u306D\u3002\u3086\u3063\u304F\u308A\u76EE\u3092\u9589\u3058\u3066\u3002\u4ECA\u65E5\u3082\u4E00\u65E5\u304A\u3064\u304B\u308C\u3055\u307E\u3002", file: "10.wav" },
+  { cat: "asmr", text: "\u306D\u3048\u3001\u805E\u3053\u3048\u308B\uFF1F\u8033\u5143\u3067\u305D\u3063\u3068\u56C1\u304F\u306D\u3002\u4ECA\u591C\u306F\u305A\u3063\u3068\u305D\u3070\u306B\u3044\u3066\u3042\u3052\u308B\u3002", file: "11.wav" },
+  { cat: "asmr", text: "\u3057\u30FC\u3063\u3001\u9759\u304B\u306B\u3057\u3066\u3002\u4ECA\u304B\u3089\u8033\u306E\u30DE\u30C3\u30B5\u30FC\u30B8\u3057\u3066\u3042\u3052\u308B\u304B\u3089\u3001\u30EA\u30E9\u30C3\u30AF\u30B9\u3057\u3066\u306D\u3002", file: "12.wav" },
+  { cat: "asmr", text: "\u96E8\u306E\u97F3\u3001\u805E\u3053\u3048\u308B\u304B\u306A\u3002\u3053\u3046\u3084\u3063\u3066\u4E8C\u4EBA\u3067\u9759\u304B\u306B\u904E\u3054\u3059\u6642\u9593\u304C\u3001\u79C1\u306F\u597D\u304D\u3060\u3088\u3002", file: "13.wav" },
+  { cat: "asmr", text: "\u304A\u3084\u3059\u307F\u3002\u3044\u3044\u5922\u898B\u3066\u306D\u3002\u660E\u65E5\u3082\u304D\u3063\u3068\u3001\u3044\u3044\u3053\u3068\u3042\u308B\u304B\u3089\u3002\u3075\u3075\u3001\u304A\u3084\u3059\u307F\u306A\u3055\u3044\u3002", file: "14.wav" },
+  { cat: "standard", text: "\u304A\u96FB\u8A71\u3042\u308A\u304C\u3068\u3046\u3054\u3056\u3044\u307E\u3059\u3002\u305F\u3060\u3044\u307E\u96FB\u8A71\u304C\u5927\u5909\u6DF7\u307F\u5408\u3063\u3066\u304A\u308A\u307E\u3059\u3002\u6050\u308C\u5165\u308A\u307E\u3059\u304C\u3001\u767A\u4FE1\u97F3\u306E\u3042\u3068\u306B\u3001\u3054\u7528\u4EF6\u3092\u304A\u8A71\u3057\u304F\u3060\u3055\u3044\u3002", file: "15.wav" },
+  { cat: "standard", text: "\u305D\u306E\u68EE\u306B\u306F\u3001\u53E4\u3044\u8A00\u3044\u4F1D\u3048\u304C\u3042\u308A\u307E\u3057\u305F\u3002\u6708\u304C\u6700\u3082\u9AD8\u304F\u6607\u308B\u591C\u3001\u9759\u304B\u306B\u8033\u3092\u6F84\u307E\u305B\u3070\u3001\u98A8\u306E\u6B4C\u58F0\u304C\u805E\u3053\u3048\u308B\u3068\u3044\u3046\u306E\u3067\u3059\u3002\u79C1\u306F\u534A\u4FE1\u534A\u7591\u3067\u3057\u305F\u304C\u3001\u305D\u306E\u591C\u3001\u78BA\u304B\u306B\u8AB0\u304B\u304C\u79C1\u3092\u547C\u3076\u58F0\u3092\u805E\u3044\u305F\u306E\u3067\u3059\u3002", file: "16.wav" },
+  { cat: "emoji", text: "\u306A\u30FC\u306B\u3001\u3069\u3046\u3057\u305F\u306E\uFF1F\u2026\u3048\uFF1F\u3082\u3063\u3068\u8FD1\u3065\u3044\u3066\u307B\u3057\u3044\uFF1F\u2026\u{1F442}\u{1F62E}\u200D\u{1F4A8}\u{1F442}\u{1F62E}\u200D\u{1F4A8}\u3053\u3046\u3044\u3046\u306E\u304C\u597D\u304D\u306A\u3093\u3060\uFF1F", file: "17.wav" },
+  { cat: "emoji", text: "\u3046\u3045\u2026\u{1F62D}\u305D\u3093\u306A\u306B\u9177\u3044\u3053\u3068\u3001\u8A00\u308F\u306A\u3044\u3067\u2026\u{1F62D}", file: "18.wav" },
+  { cat: "emoji", text: "\u{1F927}\u{1F927}\u3054\u3081\u3093\u306D\u3001\u98A8\u90AA\u5F15\u3044\u3061\u3083\u3063\u3066\u3066\u{1F927}\u2026\u5927\u4E08\u592B\u3001\u305F\u3060\u306E\u98A8\u90AA\u3060\u304B\u3089\u3059\u3050\u6CBB\u308B\u3088\u{1F97A}", file: "19.wav" },
+  { cat: "voicedesign", text: "\u660E\u65E5\u306E\u5348\u5F8C\u306B\u4E88\u5B9A\u3057\u3066\u3044\u305F\u4F1A\u8B70\u3060\u3051\u3069\u3001\u6025\u9063\u6765\u9031\u306B\u5EF6\u671F\u306B\u306A\u3063\u305F\u307F\u305F\u3044\u3002\u60AA\u3044\u3093\u3060\u3051\u3069\u3001\u8CC7\u6599\u306E\u6E96\u5099\u306F\u4E00\u65E6\u30B9\u30C8\u30C3\u30D7\u3057\u3066\u304A\u3044\u3066\u304F\u308C\u308B\u304B\u306A\u3002", file: "vd_00.wav", caption: "\u4F4E\u3044\u58F0\u306E\u5973\u6027\u304C\u3001\u82DB\u7ACB\u3061\u3092\u96A0\u305B\u306A\u3044\u69D8\u5B50\u3067\u7126\u3063\u3066\u8A71\u3057\u3066\u3044\u308B\u3002\u30AF\u30EA\u30A2\u306A\u97F3\u8CEA\u3001\u5C11\u3057\u611F\u60C5\u7684\u306A\u30C8\u30FC\u30F3\u3067\u3001\u5446\u308C\u305F\u3088\u3046\u306A\u69D8\u5B50\u3002" },
+  { cat: "voicedesign", text: "\u304A\u304B\u3057\u3044\u306A\u3001\u3055\u3063\u304D\u307E\u3067\u78BA\u304B\u306B\u3053\u3053\u306B\u3042\u3063\u305F\u306F\u305A\u306A\u3093\u3060\u3051\u3069\u3002\u8AB0\u304B\u304C\u6C17\u3092\u5229\u304B\u305B\u3066\u3001\u5225\u306E\u5834\u6240\u306B\u7247\u4ED8\u3051\u3061\u3083\u3063\u305F\u306E\u304B\u306A\u3002", file: "vd_01.wav", caption: "\u3084\u3084\u9AD8\u3081\u306E\u7537\u6027\u306E\u58F0\u3067\u3001\u6C17\u9063\u3044\u3092\u898B\u305B\u3066\u7533\u3057\u8A33\u306A\u3055\u305D\u3046\u306A\u30C8\u30FC\u30F3\u3067\u3084\u3055\u3057\u304F\u8A71\u3057\u3066\u307B\u3057\u3044\u3002" },
+  { cat: "voicedesign", text: "\u3053\u308C\u{1F620}\u3001\u6628\u65E5\u304B\u3089\u305A\u3063\u3068\u673A\u306E\u4E0A\u306B\u7F6E\u304D\u3063\u3071\u306A\u3057\u306B\u306A\u3063\u3066\u307E\u3059\u3088\u{1F612}\u65E9\u304F\u7247\u4ED8\u3051\u3066\u304A\u3044\u3066\u304F\u3060\u3055\u3044\u306D\u{1F620}", file: "vd_02.wav", caption: "\u4F4E\u3081\u306E\u5973\u6027\u306E\u58F0\u3067\u3001\u5AC1\u60AA\u611F\u3092\u793A\u3057\u306A\u304C\u3089\u6012\u3063\u3066\u3044\u308B\u3088\u3046\u306B\u8A71\u3057\u3066\u307B\u3057\u3044\u3067\u3059\u3002\u9014\u4E2D\u3067\u820C\u6253\u3061\u3092\u631F\u307F\u3001\u5F37\u3044\u618E\u3057\u307F\u3092\u6301\u3063\u3066\u898B\u4E0B\u3057\u3066\u3044\u308B\u611F\u3058\u3067\u3002" },
+];
+
+var EMOJIS = [
+  {e:"\u{1F442}",d:"\u56C1\u304D\u3001\u8033\u5143\u306E\u97F3"},{e:"\u{1F62E}\u200D\u{1F4A8}",d:"\u5410\u606F\u3001\u6E9C\u606F\u3001\u5BDD\u606F"},{e:"\u23F8\uFE0F",d:"\u9593\u3001\u6C88\u9ED9"},
+  {e:"\u{1F92D}",d:"\u7B11\u3044\uFF08\u304F\u3059\u304F\u3059\uFF09"},{e:"\u{1F975}",d:"\u5598\u304E\u3001\u3046\u3081\u304D\u58F0"},{e:"\u{1F4E2}",d:"\u30A8\u30B3\u30FC\u3001\u30EA\u30D0\u30FC\u30D6"},
+  {e:"\u{1F60F}",d:"\u304B\u3089\u304B\u3046\u3088\u3046\u306B"},{e:"\u{1F97A}",d:"\u58F0\u3092\u9707\u308F\u305B\u306A\u304C\u3089"},{e:"\u{1F32C}\uFE0F",d:"\u606F\u5207\u308C\u3001\u8352\u3044\u606F\u9063\u3044"},
+  {e:"\u{1F62E}",d:"\u606F\u3092\u306E\u3080"},{e:"\u{1F445}",d:"\u8210\u3081\u308B\u97F3\u3001\u6C34\u97F3"},{e:"\u{1F48B}",d:"\u30EA\u30C3\u30D7\u30CE\u30A4\u30BA"},
+  {e:"\u{1FAF6}",d:"\u512A\u3057\u304F"},{e:"\u{1F62D}",d:"\u545C\u54BD\u3001\u6CE3\u304D\u58F0"},{e:"\u{1F631}",d:"\u60B2\u9E23\u3001\u53EB\u3073"},
+  {e:"\u{1F62A}",d:"\u7720\u305D\u3046\u306B"},{e:"\u23E9",d:"\u65E9\u53E3"},{e:"\u{1F4DE}",d:"\u96FB\u8A71\u8D8A\u3057"},
+  {e:"\u{1F422}",d:"\u3086\u3063\u304F\u308A\u3068"},{e:"\u{1F964}",d:"\u5504\u3092\u98F2\u3080\u97F3"},{e:"\u{1F927}",d:"\u54B3\u3001\u304F\u3057\u3083\u307F"},
+  {e:"\u{1F612}",d:"\u820C\u6253\u3061"},{e:"\u{1F630}",d:"\u614C\u3066\u3066\u3001\u3069\u3082\u308A"},{e:"\u{1F606}",d:"\u559C\u3073\u306A\u304C\u3089"},
+  {e:"\u{1F620}",d:"\u6012\u308A\u3001\u4E0D\u6E80"},{e:"\u{1F632}",d:"\u9A5A\u304D\u3001\u611F\u5606"},{e:"\u{1F971}",d:"\u3042\u304F\u3073"},
+  {e:"\u{1F616}",d:"\u82E6\u3057\u3052\u306B"},{e:"\u{1F61F}",d:"\u5FC3\u914D\u305D\u3046\u306B"},{e:"\u{1FAE3}",d:"\u6065\u305A\u304B\u3057\u305D\u3046\u306B"},
+  {e:"\u{1F644}",d:"\u5446\u308C\u305F\u3088\u3046\u306B"},{e:"\u{1F60A}",d:"\u697D\u3057\u3052\u306B"},{e:"\u{1F44C}",d:"\u76F8\u69CC\u3001\u9837\u304D"},
+  {e:"\u{1F64F}",d:"\u61C7\u9858\u3059\u308B\u3088\u3046\u306B"},{e:"\u{1F974}",d:"\u9154\u3063\u6255\u3063\u3066"},{e:"\u{1F3B5}",d:"\u9F3B\u6B4C"},
+  {e:"\u{1F910}",d:"\u53E3\u3092\u585E\u304C\u308C\u3066"},{e:"\u{1F60C}",d:"\u5B89\u5835\u3001\u6E80\u8DB3"},{e:"\u{1F914}",d:"\u7591\u554F\u306E\u58F0"}
+];
+
+var SECTION_ORDER = [
+  {id:"quick", title:"\u{1F3A4} \u7D75\u6587\u5B57\u30B5\u30F3\u30D7\u30EB\uFF08\u30AF\u30EA\u30C3\u30AF\u3067\u5373\u751F\u6210\uFF09", defaultOpen: true},
+  {id:"chuuni", title:"\u4E2D\u4E8C\u75C5\u30BB\u30EA\u30D5"},
+  {id:"heroine", title:"\u30E9\u30CE\u30D9\u7CFB\u30D2\u30ED\u30A4\u30F3"},
+  {id:"asmr", title:"ASMR"},
+  {id:"standard", title:"\u6A19\u6E96TTS\uFF08HF\u30B5\u30F3\u30D7\u30EB\uFF09"},
+  {id:"emoji", title:"\u7D75\u6587\u5B57\u30B9\u30BF\u30A4\u30EB\u5236\u5FA1\uFF08HF\u30B5\u30F3\u30D7\u30EB\uFF09"},
+  {id:"voicedesign", title:"VoiceDesign\uFF08HF\u30B5\u30F3\u30D7\u30EB\uFF09"}
+];
+
+function getToggleState(id) {
+  try { var s = localStorage.getItem("tts_section_" + id); return s === null ? true : s === "1"; } catch(e) { return true; }
+}
+function setToggleState(id, open) {
+  try { localStorage.setItem("tts_section_" + id, open ? "1" : "0"); } catch(e) {}
+}
+
+function toggleSection(id) {
+  var content = document.getElementById("content-" + id);
+  var toggle = document.getElementById("toggle-" + id);
+  var isOpen = !content.classList.contains("collapsed");
+  if (isOpen) {
+    content.classList.add("collapsed");
+    toggle.classList.add("collapsed");
+    setToggleState(id, false);
+  } else {
+    content.classList.remove("collapsed");
+    toggle.classList.remove("collapsed");
+    setToggleState(id, true);
+  }
+}
+
+function buildSections() {
+  var container = document.getElementById("samples-container");
+  container.innerHTML = SECTION_ORDER.map(function(sec) {
+    var open = getToggleState(sec.id);
+    return '<div class="section-header" onclick="toggleSection(\'' + sec.id + '\')">' +
+      '<span class="section-toggle' + (open ? '' : ' collapsed') + '" id="toggle-' + sec.id + '">\u25BC</span>' +
+      '<h2>' + sec.title + '</h2></div>' +
+      '<div class="section-content' + (open ? '' : ' collapsed') + '" id="content-' + sec.id + '">' +
+      '<div id="samples-' + sec.id + '"></div></div>';
+  }).join("");
+}
+
+function renderQuickSamples() {
+  var el = document.getElementById("samples-quick");
+  if (!el) return;
+  el.className = "quick-grid";
+  el.innerHTML = QUICK_SAMPLES.map(function(text, i) {
+    return '<div class="quick-item" id="quick-' + i + '" onclick="quickGenerate(' + i + ')">' + text + '</div>';
+  }).join("");
+}
+
+function quickGenerate(idx) {
+  var text = QUICK_SAMPLES[idx];
+  var ta = document.getElementById("text");
+  ta.value = ta.value ? ta.value + "\n" + text : text;
+  var el = document.getElementById("quick-" + idx);
+  if (el) el.classList.add("generating");
+  generate().then(function() {
+    if (el) el.classList.remove("generating");
+  });
+}
+
+function renderEmojiPalette() {
+  document.getElementById("emoji-palette").innerHTML = EMOJIS.map(function(em) {
+    return '<button class="emoji-btn" title="' + em.d + '" onclick="insertEmoji(\'' + em.e.replace(/'/g, "\\'") + '\')">' + em.e + '</button>';
+  }).join("");
+}
+
+function insertEmoji(emoji) {
+  var ta = document.getElementById("text");
+  var start = ta.selectionStart;
+  var end = ta.selectionEnd;
+  var val = ta.value;
+  ta.value = val.substring(0, start) + emoji + val.substring(end);
+  var pos = start + emoji.length;
+  ta.setSelectionRange(pos, pos);
+  ta.focus();
+}
+
+document.addEventListener("keydown", function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    generate();
+  }
+});
+
+function setCaption(el) { document.getElementById("caption").value = el.textContent; }
 
 function switchModel(model) {
   currentModel = model;
@@ -126,14 +299,16 @@ function switchModel(model) {
 }
 
 function renderPresets() {
-  const groups = { chuuni: [], heroine: [], asmr: [], standard: [], emoji: [], voicedesign: [] };
-  PRESETS.forEach(function(p, i) { groups[p.cat].push(Object.assign({}, p, { id: i })); });
+  var groups = {};
+  SECTION_ORDER.forEach(function(s) { if (s.id !== "quick") groups[s.id] = []; });
+  PRESETS.forEach(function(p, i) { if (groups[p.cat]) groups[p.cat].push(Object.assign({}, p, { id: i })); });
   Object.keys(groups).forEach(function(cat) {
     var items = groups[cat];
     var el = document.getElementById("samples-" + cat);
     if (!el) return;
+    el.className = "sample-grid";
     el.innerHTML = items.map(function(p) {
-      var captionHtml = p.caption ? '<div class="sample-caption">\ud83c\udfa4 ' + p.caption + '</div>' : '';
+      var captionHtml = p.caption ? '<div class="sample-caption">\u{1F3A4} ' + p.caption + '</div>' : '';
       return '<div class="sample-item">' +
         '<div class="sample-top">' +
           '<button class="sample-play" id="play-' + p.id + '" onclick="togglePlay(' + p.id + ')">&#9654;</button>' +
@@ -161,7 +336,6 @@ function togglePlay(id) {
   var audio = document.getElementById("sample-audio-" + id);
   var btn = document.getElementById("play-" + id);
   var wrap = document.getElementById("audio-wrap-" + id);
-
   if (currentlyPlaying !== null && currentlyPlaying !== id) {
     var prev = document.getElementById("sample-audio-" + currentlyPlaying);
     var prevBtn = document.getElementById("play-" + currentlyPlaying);
@@ -169,20 +343,12 @@ function togglePlay(id) {
     if (prevBtn) { prevBtn.className = "sample-play"; prevBtn.innerHTML = "&#9654;"; }
     document.getElementById("audio-wrap-" + currentlyPlaying).style.display = "none";
   }
-
   if (audio.paused) {
-    audio.play();
-    btn.className = "sample-play playing";
-    btn.innerHTML = "&#9632;";
-    wrap.style.display = "block";
-    currentlyPlaying = id;
+    audio.play(); btn.className = "sample-play playing"; btn.innerHTML = "&#9632;";
+    wrap.style.display = "block"; currentlyPlaying = id;
   } else {
-    audio.pause();
-    audio.currentTime = 0;
-    btn.className = "sample-play";
-    btn.innerHTML = "&#9654;";
-    wrap.style.display = "none";
-    currentlyPlaying = null;
+    audio.pause(); audio.currentTime = 0; btn.className = "sample-play"; btn.innerHTML = "&#9654;";
+    wrap.style.display = "none"; currentlyPlaying = null;
   }
 }
 
@@ -194,12 +360,12 @@ function onEnded(id) {
 
 function addHistory(text, caption, audioUrl, elapsed) {
   var now = new Date().toLocaleTimeString("ja-JP");
-  var model = caption ? "VoiceDesign" : "\u901a\u5e38\u7248";
+  var model = caption ? "VoiceDesign" : "\u901A\u5E38\u7248";
   hist.unshift({ text: text, caption: caption, audioUrl: audioUrl, elapsed: elapsed, time: now, model: model });
   document.getElementById("history-list").innerHTML = hist.map(function(h) {
-    var captionLine = h.caption ? '<div style="font-size:0.8em;color:#888;font-style:italic;">\ud83c\udfa4 ' + h.caption + '</div>' : '';
+    var captionLine = h.caption ? '<div style="font-size:0.8em;color:#888;font-style:italic;">\u{1F3A4} ' + h.caption + '</div>' : '';
     return '<div class="history-item">' +
-      '<div class="meta">' + h.time + ' | ' + h.model + ' | ' + h.elapsed + '\u79d2</div>' +
+      '<div class="meta">' + h.time + ' | ' + h.model + ' | ' + h.elapsed + '\u79D2</div>' +
       '<div style="font-size:0.9em">' + h.text.slice(0, 100) + (h.text.length > 100 ? '...' : '') + '</div>' +
       captionLine +
       '<audio controls src="' + h.audioUrl + '" style="width:100%;margin-top:4px"></audio>' +
@@ -221,7 +387,7 @@ async function generate() {
   if (caption) body.caption = caption;
 
   btn.disabled = true;
-  status.textContent = "\u751f\u6210\u4e2d... (" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901a\u5e38\u7248") + ")";
+  status.textContent = "\u751F\u6210\u4E2D... (" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901A\u5E38\u7248") + ")";
   var t0 = performance.now();
 
   try {
@@ -237,15 +403,18 @@ async function generate() {
     audio.src = url;
     audio.style.display = "block";
     audio.play();
-    status.textContent = "\u751f\u6210\u5b8c\u4e86 (" + elapsed + "\u79d2) [" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901a\u5e38\u7248") + "]";
+    status.textContent = "\u751F\u6210\u5B8C\u4E86 (" + elapsed + "\u79D2) [" + (currentModel === "voicedesign" ? "VoiceDesign" : "\u901A\u5E38\u7248") + "]";
     addHistory(text, caption, url, elapsed);
   } catch (e) {
-    status.textContent = "\u30a8\u30e9\u30fc: " + e.message;
+    status.textContent = "\u30A8\u30E9\u30FC: " + e.message;
   }
   btn.disabled = false;
 }
 
+buildSections();
+renderQuickSamples();
 renderPresets();
+renderEmojiPalette();
 </script>
 </body>
 </html>
